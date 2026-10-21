@@ -1,0 +1,19 @@
+# Build artifacts
+dist/*
+# node modules
+node_modules/*
+# pnpm store
+.pnpm-store/*
+
+# Runtime logs & pid (Codespaces 自动部署产生)
+logs/
+*.pid
+# connector.luau 补丁前的备份
+connector.luau.bak
+
+# Cursor
+.cursor/*
+# Cursor
+.cursor/*
+# macOS
+.DS_Store
