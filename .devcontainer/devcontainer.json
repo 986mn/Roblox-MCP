@@ -1,0 +1,36 @@
+{
+  "name": "Roblox-MCP",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:1-22-bookworm",
+
+  // 容器一创建就自动：打补丁 + 装依赖 + 编译
+  "postCreateCommand": "bash .devcontainer/setup.sh",
+
+  // 每次启动（含从休眠唤醒）自动：拉起桥接服务
+  "postStartCommand": "bash .devcontainer/start.sh",
+
+  // 服务监听的端口
+  "forwardPorts": [16384],
+
+  // 关键：让 16384 自动转发且为 public（Roblox 客户端不带你登录态，Private 连不上）
+  "portsAttributes": {
+    "16384": {
+      "label": "Roblox-MCP Bridge",
+      "visibility": "public",
+      "onAutoForward": "notify"
+    }
+  },
+
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
+    }
+  },
+
+  "hostRequirements": {
+    "cpus": 2,
+    "memory": "4gb",
+    "storage": "16gb"
+  }
+}
