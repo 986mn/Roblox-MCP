@@ -1,0 +1,67 @@
+import { BASE_URL, PROMOTION_JITTER_MAX } from "../config.js";
+import { startAsPrimary } from "./handlers/server/primary.js";
+import { startAsSecondary } from "./handlers/server/secondary.js";
+
+function tryPromote(): void {
+  const jitter = Math.floor(Math.random() * PROMOTION_JITTER_MAX);
+  console.error(`[Promote] Waiting ${jitter}ms before attempting promotion...`);
+
+  setTimeout(async () => {
+    try {
+      await startAsPrimary();
+      console.error("[Promote] Successfully promoted to primary!");
+    } catch {
+      console.error(
+        "[Promote] Another instance already claimed primary. Reconnecting as secondary..."
+      );
+      setTimeout(() => startAsSecondary(undefined, undefined, tryPromote), 200);
+    }
+  }, jitter);
+}
+
+export async function boot(): Promise<void> {
+  // ── --baseurl path: try to connect as secondary to remote; fall back to primary ──
+  if (BASE_URL) {
+    // WebSocket 需要 ws:// 或 wss:// 协议；https→wss、http→ws
+    // 这样 --baseurl https://xxx.app.github.dev 也能正确连上 Codespaces 转发
+    const relayUrl =
+      BASE_URL.replace(/\/$/, "").replace(/^https:\/\//i, "wss://").replace(/^http:\/\//i, "ws://") +
+      "/mcp-relay";
+    console.error(`[Boot] --baseurl mode: targeting relay at ${relayUrl}`);
+
+    startAsSecondary(
+      relayUrl,
+      async () => {
+        console.error("[Boot] Remote unreachable — starting as primary (fallback).");
+        try {
+          await startAsPrimary();
+          console.error("[Boot] Primary started successfully (fallback from --baseurl).");
+        } catch (err) {
+          const code = (err as NodeJS.ErrnoException | undefined)?.code;
+          if (code === "EADDRINUSE") {
+            console.error("[Boot] Port in use locally too — becoming secondary to localhost.");
+            startAsSecondary(undefined, undefined, tryPromote);
+          } else {
+            console.error("[Boot] Fatal error during fallback primary start:", err);
+            process.exit(1);
+          }
+        }
+      },
+      tryPromote
+    );
+    return;
+  }
+
+  // ── Normal path: try primary, fall back to localhost secondary ──
+  try {
+    await startAsPrimary();
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException | undefined)?.code;
+    if (code === "EADDRINUSE") {
+      startAsSecondary(undefined, undefined, tryPromote);
+    } else {
+      console.error("[Boot] Fatal error:", err);
+      process.exit(1);
+    }
+  }
+}
